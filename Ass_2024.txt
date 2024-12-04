@@ -1,0 +1,251 @@
+API Endpoints
+
+-------------------------
+1. Admin Responsibilities
+
+
+Add new grocery items
+
+-:
+Endpoint: POST /admin/groceries
+
+Description: Adds a new grocery item to the system.
+
+Request Body:
+
+
+{
+  "name": "Milk",
+  "price": 50,
+  "stock": 100
+}
+
+Response: 201 Created
+
+View existing grocery items
+:-
+
+Endpoint: GET /admin/groceries
+
+Description: Retrieves a list of all grocery items.
+
+Response:
+
+
+[
+  {
+    "id": 1,
+    "name": "Milk",
+    "price": 50,
+    "stock": 100
+  }
+]
+
+Remove grocery items
+
+
+:-Endpoint: DELETE /admin/groceries/:id
+
+Description: Removes a grocery item by ID.
+
+Response: 200 OK
+
+Update grocery item details
+
+Endpoint: PUT /admin/groceries/:id
+Description: Updates name, price, or stock of a grocery item.
+
+Request Body:
+
+
+{
+  "name": "Low-fat Milk",
+  "price": 45
+}
+
+Response: 200 OK
+
+Manage inventory levels
+
+:-
+Endpoint: PATCH /admin/groceries/:id/stock
+
+Description: Updates the stock level of a grocery item.
+
+Request Body:
+
+{
+  "stock": 200
+}
+
+Response: 200 OK
+
+User Responsibilities
+View available grocery items
+
+-:
+Endpoint: GET /user/groceries
+Description: Retrieves a list of available grocery items.
+
+Response:
+[
+  {
+    "id": 1,
+    "name": "Milk",
+    "price": 50,
+    "stock": 100
+  }
+]
+
+Book multiple grocery items
+
+-:
+Endpoint: POST /user/orders
+
+Description: Places an order for multiple grocery items.
+
+Request Body
+{
+  "items": [
+    { "id": 1, "quantity": 2 },
+    { "id": 2, "quantity": 1 }
+  ]
+}
+Response: 201 Created
+
+Code Implementation
+TypeScript Code
+Models
+import { Sequelize, DataTypes, Model } from "sequelize";
+
+const sequelize = new Sequelize('postgres://user:password@localhost:5432/grocerydb');
+
+// Grocery Model
+class Grocery extends Model {
+  public id!: number;
+  public name!: string;
+  public price!: number;
+  public stock!: number;
+}
+
+Grocery.init({
+  name: { type: DataTypes.STRING, allowNull: false },
+  price: { type: DataTypes.FLOAT, allowNull: false },
+  stock: { type: DataTypes.INTEGER, allowNull: false }
+}, { sequelize, modelName: 'grocery' });
+
+// Order Model
+class Order extends Model {
+  public id!: number;
+  public items!: { id: number; quantity: number }[];
+}
+
+Order.init({
+  items: { type: DataTypes.JSONB, allowNull: false }
+}, { sequelize, modelName: 'order' });
+
+export { Grocery, Order, sequelize };
+
+
+Routes
+import express, { Request, Response } from "express";
+import { Grocery, Order } from "./models";
+
+const router = express.Router();
+
+// Admin Endpoints
+router.post("/admin/groceries", async (req: Request, res: Response) => {
+  const { name, price, stock } = req.body;
+  const grocery = await Grocery.create({ name, price, stock });
+  res.status(201).json(grocery);
+});
+
+router.get("/admin/groceries", async (_req: Request, res: Response) => {
+  const groceries = await Grocery.findAll();
+  res.json(groceries);
+});
+
+router.delete("/admin/groceries/:id", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  await Grocery.destroy({ where: { id } });
+  res.status(200).send("Deleted successfully");
+});
+
+router.put("/admin/groceries/:id", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { name, price } = req.body;
+  await Grocery.update({ name, price }, { where: { id } });
+  res.status(200).send("Updated successfully");
+});
+
+router.patch("/admin/groceries/:id/stock", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { stock } = req.body;
+  await Grocery.update({ stock }, { where: { id } });
+  res.status(200).send("Stock updated successfully");
+});
+
+// User Endpoints
+router.get("/user/groceries", async (_req: Request, res: Response) => {
+  const groceries = await Grocery.findAll();
+  res.json(groceries);
+});
+
+router.post("/user/orders", async (req: Request, res: Response) => {
+  const { items } = req.body;
+  const order = await Order.create({ items });
+  res.status(201).json(order);
+});
+
+export default router;
+-------------------------
+
+Advanced Challenge-
+
+Dockerfile
+# Base Image
+FROM node:16
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files and install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy app source
+COPY . .
+
+# Expose port and run app
+EXPOSE 3000
+CMD ["npm", "start"]
+
+-----------------------------
+docker-compose.yml
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=mysql://user:password@mysql:3306/grocerydb
+    depends_on:
+      - mysql
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_DATABASE: grocerydb
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
+
+----------------------------
+
